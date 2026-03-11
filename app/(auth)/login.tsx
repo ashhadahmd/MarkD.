@@ -18,10 +18,6 @@ export default function LoginScreen() {
   
   const { loginState, isAuthenticated } = useAuthStore();
 
-  if (isAuthenticated) {
-    return <Redirect href="/(tabs)/attendance" />;
-  }
-
   useEffect(() => {
     const verifyVersion = async () => {
       try {
@@ -39,6 +35,10 @@ export default function LoginScreen() {
     
     verifyVersion();
   }, []);
+
+  if (isAuthenticated) {
+    return <Redirect href="/(tabs)/attendance" />;
+  }
 
   const handleUpdate = () => {
     Linking.openURL('https://github.com/ashhadahmd/MarkD./releases/latest');
