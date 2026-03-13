@@ -91,23 +91,14 @@ export const portalService = {
   async checkLatestVersion(): Promise<{ isLatest: boolean; latestVersion: string }> {
     try {
       const currentVersion = Constants.expoConfig?.version || '1.0.0';
-      
       const res = await axios.get('https://api.github.com/repos/ashhadahmd/MarkD./releases/latest', {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-        },
+        headers: { 'Accept': 'application/vnd.github.v3+json' },
         timeout: 5000,
       });
-
-      const latestTag = res.data.tag_name; // e.g., 'v1.0.0'
+      const latestTag = res.data.tag_name;
       const latestVersion = latestTag.replace(/^v/, '');
-
-      return {
-        isLatest: currentVersion === latestVersion,
-        latestVersion
-      };
+      return { isLatest: currentVersion === latestVersion, latestVersion };
     } catch (error) {
-      // If the API fails (network error, rate limit), we allow the user to proceed safely
       return { isLatest: true, latestVersion: Constants.expoConfig?.version || '1.0.0' };
     }
   },
@@ -115,7 +106,6 @@ export const portalService = {
   async login(regNo: string, password: string): Promise<boolean> {
     try {
       const client = await createClient();
-      
       const getRes = await client.get('/Login');
       const html: string = getRes.data;
 
@@ -126,7 +116,6 @@ export const portalService = {
 
       const viewState = extractInput('__VIEWSTATE');
       const eventValidation = extractInput('__EVENTVALIDATION');
-      
       const fingerprint = fingerprintService.generateFingerprint();
 
       const payload = new URLSearchParams({
@@ -153,11 +142,7 @@ export const portalService = {
         }
       });
 
-      if (postRes.data.includes('Username/Password incorrect')) {
-        return false;
-      }
-      
-      return true;
+      return !postRes.data.includes('Username/Password incorrect');
     } catch (e) {
       return false;
     }
@@ -171,18 +156,14 @@ export const portalService = {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
     if (parts.length < 3) return dateStr;
-    
     const day = parts[0];
     const monthStr = parts[1];
     let year = parts[2];
-    
     if (year.length === 2) year = '20' + year;
-    
     const months: { [key: string]: string } = {
       'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
       'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
     };
-    
     const month = months[monthStr] || '01';
     return `${year}-${month}-${day.padStart(2, '0')}`;
   },
@@ -195,31 +176,34 @@ export const portalService = {
     return false;
   },
 
-  async getAttendance(): Promise<AttendanceData> {
+  async getAttendance(signal?: AbortSignal): Promise<AttendanceData> {
     const fetchWithRetry = async (retryCount = 0): Promise<AttendanceData> => {
       try {
         const client = await createClient();
-        const res = await client.get('/attendance');
-        
+        const res = await client.get('/attendance', { signal });
         const $ = cheerio.load(res.data);
+
         if ($('#btnlgn').length > 0) {
           if (retryCount === 0 && await this.tryRenewSession()) {
             return fetchWithRetry(1);
           }
-          throw new Error('Session invalid: Redirected to login');
+          throw new Error('Session invalid');
         }
 
-        const subjects: Subject[] = [];
-        const table = $('#ctl00_ContentPlaceHolder1_TgridAttedance');
+        const tableRows = $('#ctl00_ContentPlaceHolder1_TgridAttedance tr').toArray();
+        if (tableRows.length > 0) tableRows.shift();
 
-        table.find('tr').each((i: number, el: any) => {
-          if (i === 0) return;
+        const subjects: Subject[] = [];
+        for (let i = 0; i < tableRows.length; i++) {
+          const el = tableRows[i];
           const cols = $(el).find('td');
-          if (cols.length < 6) return;
+          if (cols.length < 6) continue;
+          
           const courseRaw = $(cols[0]).text().trim();
           const nameMatch = courseRaw.match(/^(.*?)\s*\((.*?)\)$/);
           const name = this.toTitleCase(nameMatch ? nameMatch[1].trim() : courseRaw);
-          const id = nameMatch ? nameMatch[2].trim() : `sub-${i}`;
+          const code = nameMatch ? nameMatch[2].trim() : 'sub';
+          const id = `${code}-${i}`;
           const conducted = parseInt($(cols[3]).text().trim()) || 0;
           const present = parseInt($(cols[4]).text().trim()) || 0;
           const percentage = parseFloat($(cols[5]).text().replace('%', '').trim()) || 0;
@@ -230,7 +214,7 @@ export const portalService = {
             totalClasses: conducted, present,
             absent: conducted - present, percentage, detailUrl
           });
-        });
+        }
 
         const totalConducted = subjects.reduce((sum, s) => sum + s.totalClasses, 0);
         const totalPresent = subjects.reduce((sum, s) => sum + s.present, 0);
@@ -249,11 +233,12 @@ export const portalService = {
     return fetchWithRetry();
   },
 
-  async getSubjectDetail(subject: Subject): Promise<SubjectDetail> {
+  async getSubjectDetail(subject: Subject, signal?: AbortSignal): Promise<SubjectDetail> {
     const fetchWithRetry = async (retryCount = 0): Promise<SubjectDetail> => {
       try {
         const client = await createClient();
-        const res = await client.get(subject.detailUrl!);
+        const requestUrl = subject.detailUrl!;
+        const res = await client.get(requestUrl, { signal });
         const $ = cheerio.load(res.data);
         
         if ($('#btnlgn').length > 0) {
@@ -329,7 +314,7 @@ export const portalService = {
         
         let profilePicture = $('#ctl00_Applicant_Pic').attr('src') || '';
         if (profilePicture && !profilePicture.startsWith('http')) {
-          profilePicture = 'https://edusmartz.ssuet.edu.pk/Studentportal/' + profilePicture.replace(/^\//, '');
+          profilePicture = PORTAL_URL + profilePicture.replace(/^\//, '');
         }
 
         return { name, regNo, program, session, status, profilePicture, cgpa, balance };

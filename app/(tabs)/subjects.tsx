@@ -1,30 +1,18 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAttendanceStore } from '../../store/useAttendanceStore';
 import { SubjectCard } from '../../components/SubjectCard';
-import { portalService } from '../../services/portalService';
+import { SyncingPill } from '../../components/SyncingPill';
 
 export default function SubjectsScreen() {
-  const { data, subjectDetails, setSubjectDetail } = useAttendanceStore();
-
-  React.useEffect(() => {
-    if (data?.subjects) {
-      data.subjects.forEach(async (subject: any) => {
-        if (!subjectDetails[subject.id] || subjectDetails[subject.id].subject.teacher === 'Faculty Member') {
-          try {
-            const detail = await portalService.getSubjectDetail(subject);
-            setSubjectDetail(subject.id, detail);
-          } catch (e) {}
-        }
-      });
-    }
-  }, [data?.subjects]);
+  const { data, subjectDetails } = useAttendanceStore();
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="px-6 pt-6 pb-4">
+      <View className="px-6 pt-6 pb-4 flex-row items-center justify-between">
         <Text className="text-2xl font-bold text-gray-900 mt-1">All Subjects</Text>
+        <SyncingPill />
       </View>
       
       <ScrollView 

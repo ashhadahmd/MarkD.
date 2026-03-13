@@ -10,28 +10,28 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from '
 
 export default function SubjectDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { data: attendance, subjectDetails, setSubjectDetail } = useAttendanceStore();
-  const [loading, setLoading] = useState(false);
+  const { data: attendance, subjectDetails, setSubjectDetail, syncing } = useAttendanceStore();
+  const [localLoading, setLocalLoading] = useState(false);
 
   const detail: SubjectDetail | undefined = typeof id === 'string' ? subjectDetails[id] : undefined;
   const subject = attendance?.subjects.find((s: any) => s.id === id);
 
   useEffect(() => {
-    if (subject && !detail) {
-      fetchDetail();
+    if (subject && !detail && !syncing) {
+      fetchDetailFallback();
     }
-  }, [id, subject]);
+  }, [id, subject?.id, detail, syncing]);
 
-  const fetchDetail = async () => {
+  const fetchDetailFallback = async () => {
     if (!subject) return;
-    setLoading(true);
+    setLocalLoading(true);
     try {
       const data = await portalService.getSubjectDetail(subject);
       setSubjectDetail(subject.id, data);
     } catch (e) {
-      console.error(e);
+      
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
@@ -52,7 +52,8 @@ export default function SubjectDetailScreen() {
     };
   });
 
-  const getColor = (percent: number) => {
+  const getColor = (percent: number, total: number) => {
+    if (total === 0) return 'bg-gray-300';
     if (percent > 75) return 'bg-green-500';
     if (percent > 70) return 'bg-yellow-500';
     return 'bg-red-500';
@@ -73,9 +74,10 @@ export default function SubjectDetailScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 32 }} 
         showsVerticalScrollIndicator={false}
       >
-        {loading && !detail ? (
+        {(localLoading || (syncing && !detail)) && !detail ? (
           <View className="items-center justify-center py-20">
             <ActivityIndicator size="large" color="#147A5C" />
+            <Text className="text-gray-500 mt-4 text-sm">Syncing details...</Text>
           </View>
         ) : detail ? (
           <>
@@ -88,13 +90,13 @@ export default function SubjectDetailScreen() {
                 <Text className="text-gray-900 font-bold h-5">{detail.subject.percentage}%</Text>
               </View>
 
-              {detail.subject.percentage <= 70 && (
+              {detail.subject.totalClasses > 0 && detail.subject.percentage <= 70 && (
                 <Text className="text-red-500 text-[10px] font-bold uppercase mb-2 text-right">Short of Attendance</Text>
               )}
               
               <View className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
                 <Animated.View 
-                  className={`h-full rounded-full ${getColor(detail.subject.percentage)}`} 
+                  className={`h-full rounded-full ${getColor(detail.subject.percentage, detail.subject.totalClasses)}`} 
                   style={progressStyle} 
                 />
               </View>

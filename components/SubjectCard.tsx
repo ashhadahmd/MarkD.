@@ -11,19 +11,22 @@ interface SubjectCardProps {
 }
 
 export const SubjectCard = ({ subject, variant = 'compact' }: SubjectCardProps) => {
-  const getGraphColor = (percent: number) => {
+  const getGraphColor = (percent: number, total: number) => {
+    if (total === 0) return 'bg-gray-300';
     if (percent > 75) return 'bg-green-500';
     if (percent > 70) return 'bg-yellow-500';
     return 'bg-red-500';
   };
 
-  const getTextColor = (percent: number) => {
+  const getTextColor = (percent: number, total: number) => {
+    if (total === 0) return 'text-gray-400';
     if (percent > 75) return 'text-green-600';
     if (percent > 70) return 'text-yellow-600';
     return 'text-red-600';
   };
 
-  const getHexColor = (percent: number) => {
+  const getHexColor = (percent: number, total: number) => {
+    if (total === 0) return '#D1D5DB';
     if (percent > 75) return '#10B981';
     if (percent > 70) return '#F59E0B';
     return '#EF4444';
@@ -70,7 +73,7 @@ export const SubjectCard = ({ subject, variant = 'compact' }: SubjectCardProps) 
               percentage={subject.percentage} 
               radius={28} 
               strokeWidth={5} 
-              color={getHexColor(subject.percentage)} 
+              color={getHexColor(subject.percentage, subject.totalClasses)} 
             />
           </View>
         </TouchableOpacity>
@@ -96,16 +99,16 @@ export const SubjectCard = ({ subject, variant = 'compact' }: SubjectCardProps) 
         <View className="mb-4">
           <View className="flex-row justify-between mb-2">
             <Text className="text-gray-600 text-xs font-semibold uppercase tracking-wider">Attendance</Text>
-            <Text className={`font-bold text-sm ${getTextColor(subject.percentage)}`}>{subject.percentage}%</Text>
+            <Text className={`font-bold text-sm ${getTextColor(subject.percentage, subject.totalClasses)}`}>{subject.percentage}%</Text>
           </View>
 
-          {subject.percentage <= 70 && (
+          {subject.totalClasses > 0 && subject.percentage <= 70 && (
             <Text className="text-red-500 text-[10px] font-bold uppercase mb-2 text-right">Short of Attendance</Text>
           )}
           
           <View className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
             <Animated.View 
-              className={`h-full rounded-full ${getGraphColor(subject.percentage)}`} 
+              className={`h-full rounded-full ${getGraphColor(subject.percentage, subject.totalClasses)}`} 
               style={progressStyle} 
             />
           </View>

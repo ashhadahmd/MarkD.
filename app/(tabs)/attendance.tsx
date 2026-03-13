@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Image } from 'react-native';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { portalService } from '../../services/portalService';
 import { useAttendanceStore } from '../../store/useAttendanceStore';
@@ -7,35 +7,77 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { CircularProgress } from '../../components/CircularProgress';
 import { SubjectCard } from '../../components/SubjectCard';
 import { SkeletonCard } from '../../components/SkeletonCard';
+import { AnimatedSyncBanner } from '../../components/AnimatedSyncBanner';
 import { Bell, User } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 export default function AttendanceScreen() {
-  const { data, loading, error, setAttendanceData, setLoading, setError } = useAttendanceStore();
+  const { data, loading, syncing, syncMessage, syncProgress, error, setAttendanceData, setLoading, setSyncing, setSyncMessage, setError } = useAttendanceStore();
   const { profile } = useAuthStore();
-  const [refreshing, setRefreshing] = useState(false);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const signal = controller.signal;
+
+    const hasCache = !!useAttendanceStore.getState().data;
+    if (!hasCache) setLoading(true);
+    setSyncing(true);
+    setSyncMessage('Fetching attendance overview...');
+
     try {
-      const attendance = await portalService.getAttendance();
+      const attendance = await portalService.getAttendance(signal);
       setAttendanceData(attendance);
       setError(null);
-    } catch (err) {
+
+      let i = 0;
+      for (const subject of attendance.subjects) {
+        if (signal.aborted) break;
+        i++;
+        setSyncMessage(subject.name);
+        useAttendanceStore.getState().setSyncProgress({ current: i, total: attendance.subjects.length });
+
+        try {
+          const detail = await portalService.getSubjectDetail(subject);
+          useAttendanceStore.getState().setSubjectDetail(subject.id, detail);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          await new Promise(res => setTimeout(res, 500));
+        } catch (detailError: any) {
+          if (detailError?.name === 'AbortError' || signal.aborted) break;
+          // Failed silently in production
+        }
+      }
+
+    } catch (err: any) {
+      if (err?.name === 'AbortError' || err?.name === 'CanceledError' || signal.aborted) {
+        return;
+      }
+      
       setError('Failed to fetch attendance data');
     } finally {
+      useAttendanceStore.getState().setSyncProgress(null);
+      setSyncMessage('');
       setLoading(false);
-      setRefreshing(false);
+      setSyncing(false);
     }
   }, []);
 
+
   useEffect(() => {
-    if (!data) {
-      fetchData();
-    }
+    fetchData();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   const onRefresh = () => {
-    setRefreshing(true);
     fetchData(true);
   };
 
@@ -55,7 +97,14 @@ export default function AttendanceScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#147A5C" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={false}
+            onRefresh={onRefresh}
+            enabled={!syncing}
+            tintColor="transparent"
+          />
+        }
       >
         <View className="px-6 pt-6 pb-4 flex-row justify-between items-center">
           <View>
@@ -78,11 +127,22 @@ export default function AttendanceScreen() {
           </View>
         </View>
 
-        {loading && !refreshing && !data ? (
-          <View className="px-6 py-12 items-center">
-             <ActivityIndicator size="large" color="#147A5C" />
-             <Text className="text-gray-500 mt-4">Syncing from portal...</Text>
+
+        {/* Syncing banner */}
+        {syncing && data && (
+          <AnimatedSyncBanner 
+            progress={syncProgress} 
+          />
+        )}
+
+
+        {loading && !syncing && !data ? (
+          <View className="px-6 py-20 items-center">
+            <ActivityIndicator size="large" color="#147A5C" />
+            <Text className="text-gray-700 font-semibold mt-4 text-base">Syncing from portal</Text>
+            <Text className="text-gray-400 mt-1 text-sm">Fetching your attendance data...</Text>
           </View>
+
         ) : error && !data ? (
           <View className="px-6 py-8 items-center">
              <Text className="text-red-500 mb-4">{error}</Text>

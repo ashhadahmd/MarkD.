@@ -20,13 +20,12 @@ export const TabBar = ({ state, descriptors, navigation }: TabBarProps) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
         
-        // Hide routes explicitly configured to be hidden from the tab bar
         if (options.href === null || route.name === 'subject/[id]') {
           return null;
         }
         
         let icon;
-        const color = isFocused ? '#FFFFFF' : '#9CA3AF'; // white if focused, gray-400 else
+        const color = isFocused ? '#FFFFFF' : '#9CA3AF';
         const size = 24;
 
         if (route.name === 'attendance') {

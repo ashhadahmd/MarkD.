@@ -5,8 +5,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#147A5C", // Dribbble design green (approx) 
-        secondary: "#F3F4F6", // Gray background
+        primary: "#147A5C",
+        secondary: "#F3F4F6",
         background: "#FFFFFF",
       }
     },

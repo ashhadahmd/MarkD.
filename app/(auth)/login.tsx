@@ -1,40 +1,85 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Redirect } from 'expo-router';
 import { portalService } from '../../services/portalService';
+import { sessionService } from '../../services/sessionService';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Eye, EyeOff, User, Lock, ArrowRight, ShieldCheck, DownloadCloud } from 'lucide-react-native';
+import { Eye, EyeOff, User, Lock, ArrowRight, ShieldCheck, DownloadCloud, CheckSquare, Square } from 'lucide-react-native';
+
+const AuthInput = React.memo(({ 
+  label, 
+  value, 
+  onChangeText, 
+  placeholder, 
+  icon: Icon, 
+  secureTextEntry,
+  rightElement,
+  editable,
+  textContentType,
+  autoComplete,
+}: any) => (
+  <View className="mb-5">
+    <Text className="text-gray-900 font-bold mb-2 ml-1">{label}</Text>
+    <View className="flex-row items-center bg-gray-50 border border-gray-100 rounded-2xl px-4 h-16 shadow-sm">
+      <Icon size={20} color="#9CA3AF" style={{ marginRight: 12 }} />
+      <TextInput
+        className="flex-1 text-gray-900 font-semibold text-base"
+        placeholder={placeholder}
+        placeholderTextColor="#9CA3AF"
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        autoCapitalize="none"
+        autoCorrect={false}
+        spellCheck={false}
+        editable={editable}
+        textContentType={textContentType}
+        autoComplete={autoComplete}
+      />
+      {rightElement}
+    </View>
+  </View>
+));
 
 export default function LoginScreen() {
   const [regNo, setRegNo] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [checkingVersion, setCheckingVersion] = useState(true);
   const [updateRequired, setUpdateRequired] = useState(false);
   const [latestVersionStr, setLatestVersionStr] = useState('');
   
   const { loginState, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    const verifyVersion = async () => {
-      try {
-        const { isLatest, latestVersion } = await portalService.checkLatestVersion();
+    // Lightweight check for update banner only — no blocking
+    portalService.checkLatestVersion()
+      .then(({ isLatest, latestVersion }) => {
         if (!isLatest) {
           setUpdateRequired(true);
           setLatestVersionStr(latestVersion);
         }
-      } catch (err) {
-        // Silent fail on version check to allow login if offline or API error
-      } finally {
-        setCheckingVersion(false);
-      }
-    };
-    
-    verifyVersion();
+      })
+      .catch(() => {});
   }, []);
+
+  const togglePassword = useCallback(() => {
+    setShowPassword(prev => !prev);
+  }, []);
+
+  const rightElement = useMemo(() => (
+    <TouchableOpacity 
+      onPress={togglePassword} 
+      className="p-2"
+      disabled={loading}
+    >
+      {showPassword ? <EyeOff size={20} color="#9CA3AF" /> : <Eye size={20} color="#9CA3AF" />}
+    </TouchableOpacity>
+  ), [showPassword, loading, togglePassword]);
 
   if (isAuthenticated) {
     return <Redirect href="/(tabs)/attendance" />;
@@ -58,7 +103,8 @@ export default function LoginScreen() {
       
       if (success) {
         const profile = await portalService.getProfile();
-        loginState(regNo, password, profile);
+        await sessionService.setRememberMe(rememberMe);
+        loginState(regNo, password, profile, rememberMe);
         router.replace('/(tabs)/attendance');
       } else {
         setError('Incorrect registration number or password');
@@ -95,12 +141,7 @@ export default function LoginScreen() {
             <Text className="text-gray-500">Access your academic logs and profile</Text>
           </View>
 
-          {checkingVersion ? (
-            <View className="py-12 items-center justify-center">
-              <ActivityIndicator size="large" color="#147A5C" />
-              <Text className="text-gray-500 mt-4 font-medium">Checking for updates...</Text>
-            </View>
-          ) : updateRequired ? (
+          {updateRequired ? (
             <View className="bg-orange-50 p-6 rounded-3xl border border-orange-100 items-center mb-8">
               <View className="w-16 h-16 bg-orange-100 rounded-full items-center justify-center mb-4">
                 <DownloadCloud size={32} color="#EA580C" />
@@ -128,45 +169,44 @@ export default function LoginScreen() {
               ) : null}
 
               <View className="space-y-5">
-                <View className="mb-5">
-                  <Text className="text-gray-900 font-bold mb-2 ml-1">Registration No.</Text>
-                  <View className="flex-row items-center bg-gray-50 border border-gray-100 rounded-2xl px-4 h-16 shadow-sm">
-                    <User size={20} color="#9CA3AF" className="mr-3" />
-                    <TextInput
-                      className="flex-1 text-gray-900 font-semibold text-base"
-                      placeholder="e.g. 2023F-BCS-023"
-                      placeholderTextColor="#9CA3AF"
-                      value={regNo}
-                      onChangeText={setRegNo}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable={!loading}
-                    />
-                  </View>
-                </View>
+                <AuthInput
+                  label="Registration No."
+                  placeholder="e.g. 2030S-BCS-000"
+                  icon={User}
+                  value={regNo}
+                  onChangeText={setRegNo}
+                  editable={!loading}
+                  textContentType="username"
+                  autoComplete="username"
+                />
 
-                <View className="mb-8">
-                  <Text className="text-gray-900 font-bold mb-2 ml-1">Password</Text>
-                  <View className="flex-row items-center bg-gray-50 border border-gray-100 rounded-2xl px-4 h-16 shadow-sm">
-                    <Lock size={20} color="#9CA3AF" className="mr-3" />
-                    <TextInput
-                      className="flex-1 text-gray-900 font-semibold text-base"
-                      placeholder="Enter your password"
-                      placeholderTextColor="#9CA3AF"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      editable={!loading}
-                    />
-                    <TouchableOpacity 
-                      onPress={() => setShowPassword(!showPassword)} 
-                      className="p-2"
-                      disabled={loading}
-                    >
-                      {showPassword ? <EyeOff size={20} color="#9CA3AF" /> : <Eye size={20} color="#9CA3AF" />}
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <AuthInput
+                  label="Password"
+                  placeholder="Enter your password"
+                  icon={Lock}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                  rightElement={rightElement}
+                  textContentType="none"
+                  autoComplete="password"
+                  contextMenuHidden={true}
+                  isPassword={true}
+                />
+
+                {/* Remember Me */}
+                <TouchableOpacity
+                  onPress={() => setRememberMe(v => !v)}
+                  className="flex-row items-center mb-6"
+                  activeOpacity={0.7}
+                  disabled={loading}
+                >
+                  {rememberMe
+                    ? <CheckSquare size={20} color="#147A5C" />
+                    : <Square size={20} color="#9CA3AF" />}
+                  <Text className="ml-2 text-gray-600 font-medium text-sm">Remember me</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   className={`w-full bg-[#147A5C] rounded-2xl h-16 flex-row justify-center items-center shadow-lg shadow-[#147A5C]/30 ${loading ? 'opacity-90' : ''}`}

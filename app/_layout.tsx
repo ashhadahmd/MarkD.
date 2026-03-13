@@ -1,17 +1,12 @@
 import "./global.css";
-import React, { useEffect } from 'react';
-import { Stack, router, useSegments } from "expo-router";
+import React, { useEffect, useRef } from 'react';
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
+import { sessionService } from '../services/sessionService';
 import { useAuthStore } from '../store/useAuthStore';
-import { portalService } from '../services/portalService';
 
 export default function RootLayout() {
-  const { isAuthenticated } = useAuthStore();
-  const segments = useSegments();
-
-  // Handled via Redirect components in index.tsx and (tabs)/_layout.tsx
-
   return (
     <>
       <StatusBar style="dark" />

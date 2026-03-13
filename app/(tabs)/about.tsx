@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Linking, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bug, Github, Code2, Share2, Mail, ExternalLink, ArrowRight } from 'lucide-react-native';
+import { SyncingPill } from '../../components/SyncingPill';
 
 export default function AboutScreen() {
   const handleReportBug = () => {
@@ -15,7 +16,7 @@ export default function AboutScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: 'Check out MarkD. - The premium SSUET Attendance Tracker! Engineered for the student community.',
+        message: 'Check out MarkD. - The premium SSUET Attendance Tracker! Engineered for the student community.\n\nDownload the latest APK: https://github.com/ashhadahmd/MarkD./releases/latest',
       });
     } catch (error: any) {}
   };
@@ -26,8 +27,9 @@ export default function AboutScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="px-6 pt-6 pb-4">
+        <View className="px-6 pt-6 pb-4 flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-gray-900 mt-1">About MarkD.</Text>
+          <SyncingPill />
         </View>
 
         <View className="mx-6 bg-[#147A5C] rounded-3xl p-8 items-center shadow-lg shadow-[#147A5C]/30 mb-6">

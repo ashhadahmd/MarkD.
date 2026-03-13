@@ -6,6 +6,7 @@ import { portalService } from '../../services/portalService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAttendanceStore } from '../../store/useAttendanceStore';
 import { LogOut, User, BookOpen, GraduationCap } from 'lucide-react-native';
+import { SyncingPill } from '../../components/SyncingPill';
 
 export default function ProfileScreen() {
   const { profile, logoutState } = useAuthStore();
@@ -24,8 +25,9 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="px-6 pt-6 pb-4">
+        <View className="px-6 pt-6 pb-4 flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-gray-900 mt-1">Profile</Text>
+          <SyncingPill />
         </View>
 
         <View className="items-center mb-8 px-6 pt-4">
@@ -53,7 +55,7 @@ export default function ProfileScreen() {
 
         <View className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-8 mx-6">
           <View className="space-y-6">
-            <View className="flex-row items-center border-b border-gray-50 pb-4">
+            <View className="flex-row items-center mb-6">
               <View className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center mr-4">
                  <GraduationCap size={20} color="#3B82F6" />
               </View>
